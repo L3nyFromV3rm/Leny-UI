@@ -37,8 +37,25 @@ function Slider:handleSlider(connections)
 	-- should probably do a check if the line has a textbutton or not, for more universal
 	self.Line.TextButton.MouseButton1Down:Connect(function(input)
 		self.dragging = true
-		self.Library.sliderDragging = true
+		
+		local touchMoved = UserInputService.TouchMoved:Connect(function(input)
+			if self.dragging then
+				local min, max = self.min, self.max
+				local percent = math.clamp((input.Position.X - self.Line.AbsolutePosition.X) / self.Line.AbsoluteSize.X, 0, 1)
+				local value = round((percent * (max - min)) + min)
 
+				self.showInfo()
+				self:updateValue({value = value})
+			end
+		end)		
+		
+		local touchEnded; touchEnded = UserInputService.TouchEnded:Connect(function(input)
+			self.dragging = false
+			self.dontShowInfo()
+			touchEnded:Disconnect()
+			touchMoved:Disconnect()
+		end)
+		
 		local inputChanged = UserInputService.InputChanged:Connect(function(input)
 			if self.dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 				local min, max = self.min, self.max
@@ -53,13 +70,14 @@ function Slider:handleSlider(connections)
 		local inputEnded; inputEnded = UserInputService.InputEnded:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				self.dragging = false
-				self.Library.sliderDragging = false
 				self.dontShowInfo()
 				inputEnded:Disconnect()
 				inputChanged:Disconnect()
 			end
 		end)
 		
+		table.insert(self.Connections, touchMoved)
+		table.insert(self.Connections, touchEnded)
 		table.insert(self.Connections, inputChanged)
 		table.insert(self.Connections, inputEnded)
 	end)

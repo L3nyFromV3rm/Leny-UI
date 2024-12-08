@@ -24,7 +24,7 @@ function Popup.new(context: table)
 		end
 	end)
 
-	-- Hide popup if it goes above the absolutewindowsize of scrollingframe when scrolling
+	-- Hide popup if it goes above or below the absolutewindowsize of scrollingframe when scrolling
 	self.Popup:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
 		local relativePosY = (self.Popup.AbsolutePosition.Y - self.ScrollingFrame.AbsolutePosition.Y) / self.ScrollingFrame.AbsoluteWindowSize.Y
 
@@ -42,7 +42,7 @@ function Popup.new(context: table)
 	return self
 end
 
-function Popup:hidePopupWhenClickingOutside()
+function Popup:hidePopupOnClickingOutside()
 	-- If person clicks outside of ui then hide popup
 	local inputBegan = UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
 		-- Since dropdown isn't part of popup absolutesize we need to make sure we add the sizing if someone opened the dropdown list
@@ -52,11 +52,11 @@ function Popup:hidePopupWhenClickingOutside()
 				addDropdownPadding = v.Size.Y.Offset
 			end
 		end
-		
-		if not gameProcessedEvent and input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		if not gameProcessedEvent and (input.UserInputType == Enum.UserInputType.MouseButton1) then
 			local widthPercent = (input.Position.X - self.Popup.AbsolutePosition.X) / self.Popup.AbsoluteSize.X
 			local lengthPercent = (input.Position.Y - self.Popup.AbsolutePosition.Y) / (self.Popup.AbsoluteSize.Y + addDropdownPadding)	
-			
+
 			if widthPercent < 0 or widthPercent > 1 or lengthPercent < 0 or lengthPercent > 1 then
 				if not self.Library.dragging and not self.Library.sliderDragging and self.Popup.BackgroundTransparency == 0 then
 					self:showPopup(false, 1, 0.2)		
@@ -65,6 +65,27 @@ function Popup:hidePopupWhenClickingOutside()
 		end
 	end)
 	
+	local touchEnded = UserInputService.TouchEnded:Connect(function(input, gameProcessedEvent)
+		local addDropdownPadding = 0
+		for _, v in ipairs(self.Popup:GetDescendants()) do
+			if v.Name == "List" and v.Size.Y.Offset > 0 then
+				addDropdownPadding = v.Size.Y.Offset
+			end
+		end
+
+		if not gameProcessedEvent then
+			local widthPercent = (input.Position.X - self.Popup.AbsolutePosition.X) / self.Popup.AbsoluteSize.X
+			local lengthPercent = (input.Position.Y - self.Popup.AbsolutePosition.Y) / (self.Popup.AbsoluteSize.Y + addDropdownPadding)	
+
+			if widthPercent < 0 or widthPercent > 1 or lengthPercent < 0 or lengthPercent > 1 then
+				if not self.Library.dragging and not self.Library.sliderDragging and self.Popup.BackgroundTransparency == 0 then
+					self:showPopup(false, 1, 0.2)		
+				end
+			end
+		end
+	end)
+	
+	table.insert(self.Library.Connections, touchEnded)
 	table.insert(self.Library.Connections, inputBegan)
 end
 
@@ -91,7 +112,7 @@ function Popup:hidePopups(objectCheck: boolean, popups)
 			Utility:tween(data.object, {[data.property] = 1}, 0.2):Play()
 		end
 	end
-	
+
 	for _, popup in ipairs(popups:GetChildren()) do
 		if (not objectCheck) or (objectCheck and popup ~= self.Popup) then
 			task.delay(0.2, function()
@@ -105,7 +126,7 @@ function Popup:showPopup(boolean, transparency: number, delayTime: number)
 	for _, data in ipairs(self.TransparentObjects) do
 		Utility:tween(data.object, {[data.property] = transparency}, 0.2):Play()
 	end
-	
+
 	if self.Inner then
 		Utility:tween(self.Inner, {BackgroundTransparency = transparency}, 0.2):Play() -- dumb fix but hey man!
 	end
