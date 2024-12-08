@@ -3,6 +3,8 @@
 local ColorPicker = {}
 ColorPicker.__index = ColorPicker
 
+local UserInputService = game:GetService("UserInputService")
+
 function ColorPicker.new(context: table)
 	local self = setmetatable(context, ColorPicker)
 	self.sliderDragging = false
@@ -24,16 +26,14 @@ function ColorPicker:updateDragPositions()
 end
 
 function ColorPicker:handleColorPicker(connections)
-	local UserInputService = game:GetService("UserInputService")
-
 	-- Set default color
 	self:updateColor({color = self.color})
-	
+
 	local inputBegan = UserInputService.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			if self.sliderDragging then
 				local percentX = (input.Position.X - self.Slider.AbsolutePosition.X) / self.Slider.AbsoluteSize.X
-				
+
 				if percentX >= 0 and percentX <= 1 then
 					self.H = math.clamp(percentX, 0, 1)
 
@@ -41,7 +41,7 @@ function ColorPicker:handleColorPicker(connections)
 					self:updateAssetsColors()
 				end
 			end
-			
+
 			if self.hsvDragging then
 				local percentX = (input.Position.X - self.HSV.AbsolutePosition.X) / self.HSV.AbsoluteSize.X
 				local percentY = (input.Position.Y - self.HSV.AbsolutePosition.Y) / self.HSV.AbsoluteSize.Y
@@ -62,7 +62,20 @@ function ColorPicker:handleColorPicker(connections)
 	self.Slider.TextButton.MouseButton1Down:Connect(function()
 		self.sliderDragging = true
 
-		local inputChanged; inputChanged = UserInputService.InputChanged:Connect(function(input)
+		local touchMoved = UserInputService.TouchMoved:Connect(function(input)
+			local percentX = math.clamp((input.Position.X - self.Slider.AbsolutePosition.X) / self.Slider.AbsoluteSize.X, 0, 1)
+			self.H = percentX
+
+			self.Slider.Drag.Position = UDim2.new(percentX, 0, 0.5, 0)
+			self:updateAssetsColors()
+		end) 
+
+		local touchEnded; touchEnded = UserInputService.TouchEnded:Connect(function(input)
+			touchMoved:Disconnect()
+			touchEnded:Disconnect()
+		end)
+
+		local inputChanged = UserInputService.InputChanged:Connect(function(input)
 			if self.sliderDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 				local percentX = math.clamp((input.Position.X - self.Slider.AbsolutePosition.X) / self.Slider.AbsoluteSize.X, 0, 1)
 				self.H = percentX
@@ -80,14 +93,29 @@ function ColorPicker:handleColorPicker(connections)
 			end
 		end)
 
+		table.insert(self.Connections, touchMoved)
+		table.insert(self.Connections, touchEnded)
 		table.insert(self.Connections, inputChanged)
 		table.insert(self.Connections, inputEnded)
 	end)
 
 	self.HSV.TextButton.MouseButton1Down:Connect(function()
 		self.hsvDragging = true
-	
-		local inputChanged; inputChanged = UserInputService.InputChanged:Connect(function(input)
+
+		local touchMoved = UserInputService.TouchMoved:Connect(function(input)
+			local percentX = math.clamp((input.Position.X - self.Slider.AbsolutePosition.X) / self.Slider.AbsoluteSize.X, 0, 1)
+			self.H = percentX
+
+			self.Slider.Drag.Position = UDim2.new(percentX, 0, 0.5, 0)
+			self:updateAssetsColors()
+		end) 
+
+		local touchEnded; touchEnded = UserInputService.TouchEnded:Connect(function(input)
+			touchMoved:Disconnect()
+			touchEnded:Disconnect()
+		end)
+
+		local inputChanged = UserInputService.InputChanged:Connect(function(input)
 			if self.hsvDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 				local percentX = math.clamp((input.Position.X - self.HSV.AbsolutePosition.X) / self.HSV.AbsoluteSize.X, 0, 1)
 				local percentY = math.clamp((input.Position.Y - self.HSV.AbsolutePosition.Y) / self.HSV.AbsoluteSize.Y, 0, 1)
@@ -98,7 +126,7 @@ function ColorPicker:handleColorPicker(connections)
 				self:updateDragPositions()
 			end
 		end)
-		
+
 		local inputEnded; inputEnded = UserInputService.InputEnded:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 then
 				inputChanged:Disconnect()
@@ -107,10 +135,12 @@ function ColorPicker:handleColorPicker(connections)
 			end
 		end)
 
+		table.insert(self.Connections, touchMoved)
+		table.insert(self.Connections, touchEnded)
 		table.insert(self.Connections, inputChanged)
 		table.insert(self.Connections, inputEnded)
 	end)
-	
+
 	self.Hex.FocusLost:Connect(function()		
 		if string.match(self.Hex.Text, "^%x%x%x%x%x%x$") then
 			self.H, self.S, self.V = Color3.fromHex(self.Hex.Text):ToHSV()
